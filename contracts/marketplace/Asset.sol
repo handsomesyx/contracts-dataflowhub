@@ -4,20 +4,20 @@ pragma solidity ^0.8.11;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Asset is ERC721, Ownable {
+contract Asset is ERC721 {
     struct AssetData {
-        string name;
-        string image;
-        uint8 deleted;
-        uint8 status;
-        uint256 price;
-        string subtitle;
-        string description;
-        uint256 supply;
-        uint256 inventory;
-        address acceptedToken;
-        string tags;
-        string remarks;
+        string name; //名称
+        string image; // 图片
+        uint8 deleted; // 是否删除  0是未删除；1是已删除
+        uint8 status; // 发布状态 0是直接出售；1是拍卖出售
+        uint256 price; // 价格
+        string subtitle; // 副标题
+        string description; // 描述
+        uint256 supply; // 供应量
+        uint256 inventory; // 库存
+        address acceptedToken; // 接受代币
+        string tags; // 标签 如能源，金融，医疗
+        string remarks; // 备注
     }
 
     mapping(uint256 => AssetData) public assets;
@@ -40,14 +40,14 @@ contract Asset is ERC721, Ownable {
         address acceptedToken,
         string memory tags,
         string memory remarks
-    ) external onlyOwner {
+    ) external {
         uint256 tokenId = nextTokenId;
         _mint(to, tokenId);
         AssetData storage newAsset = assets[tokenId];
         newAsset.name = name;
         newAsset.image = image;
-        newAsset.deleted = 0; // Not deleted
-        newAsset.status = 0; // Pending
+        newAsset.deleted = 0;
+        newAsset.status = 0;
         newAsset.price = price;
         newAsset.subtitle = subtitle;
         newAsset.description = description;
@@ -74,7 +74,7 @@ contract Asset is ERC721, Ownable {
         address acceptedToken,
         string memory tags,
         string memory remarks
-    ) external onlyOwner {
+    ) external {
         require(_exists(tokenId), "Token does not exist");
         AssetData storage asset = assets[tokenId];
         asset.name = name;
@@ -92,7 +92,17 @@ contract Asset is ERC721, Ownable {
         emit AssetUpdated(tokenId);
     }
 
-    function deleteAsset(uint256 tokenId) external onlyOwner {
+    function getCreatedAssets() external view returns (bytes32[] memory) {
+        bytes32[] memory createdAssetIds = new bytes32[](nextTokenId);
+        for (uint256 i = 0; i < nextTokenId; i++) {
+            createdAssetIds[i] = keccak256(
+                abi.encodePacked(address(this), i + 1)
+            );
+        }
+        return createdAssetIds;
+    }
+
+    function deleteAsset(uint256 tokenId) external {
         require(_exists(tokenId), "Token does not exist");
         AssetData storage existingAsset = assets[tokenId];
         existingAsset.deleted = 1;

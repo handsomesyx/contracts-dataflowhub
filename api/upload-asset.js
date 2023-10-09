@@ -7,6 +7,7 @@ describe("Asset Contract", function () {
   let assetContract;
   let owner;
   let contractData; 
+  let tokenId;
   const AssetData = {
     name: "Test Asset", // 名称
     image: "test.jpg",  // 图片
@@ -18,24 +19,19 @@ describe("Asset Contract", function () {
     tags: "energy", // 标签 如能源，金融，医疗
     remarks: "Test Remarks",  // 备注
   };
-  // 封装等待函数
-  async function waitFor(waitTimeInSeconds) {
-    return new Promise(resolve => setTimeout(resolve, waitTimeInSeconds * 1000));
-  }
 
   before(async () => {
     [owner] = await ethers.getSigners();
     console.log("ownerAddress:",owner.address);
     // 从JSON文件读取合约数据
-    const jsonFilePath = path.join(__dirname, "upload-asset-contract-data.json");
+    const jsonFilePath = path.join(__dirname, "asset-contract-data.json");
     const rawContractData = fs.readFileSync(jsonFilePath);
     contractData = JSON.parse(rawContractData);
     // 连接到现有的合约
     assetContract = new ethers.Contract(contractData.assetAddress, contractData.assetAbi, owner);
   });
   
-  it("should mint a new asset", async () => {
-    const tokenId = 7; 
+  it("should mint a new asset", async () => {   
     await assetContract.mint(
       owner.address,
       AssetData.name,
@@ -48,7 +44,18 @@ describe("Asset Contract", function () {
       AssetData.tags,
       AssetData.remarks
     );
-    console.log("Current asset name after mint:", (await assetContract.assets(tokenId)).name);
+
+    // 监听 AssetMinted 事件,从中获取 tokenId
+    const filter = assetContract.filters.AssetMinted(null, null);
+    const events = await assetContract.queryFilter(filter);
+    const latestEvent = events[events.length - 1];     
+    tokenId = latestEvent.args.tokenId; 
+    console.log("New NFT Token ID:", tokenId.toString()); 
+    
+    // 调用合约获取已创建的资产地址，之后就可以根据资产地址进行上市
+    const createdAssetAddresses = await assetContract.getCreatedAssets();
+    const existingAssetAddress = createdAssetAddresses[tokenId];    
+    console.log("existingAssetAddress:",existingAssetAddress);
 
     const asset = await assetContract.assets(tokenId);
     console.log("after mint asset:",asset);
@@ -65,7 +72,6 @@ describe("Asset Contract", function () {
   });
 
   it("should update an existing asset", async () => {
-    const tokenId = 7; 
     const newName = "Updated Asset";
     try{
     await assetContract.updateAsset(
@@ -86,8 +92,6 @@ describe("Asset Contract", function () {
     } catch(error){
       console.log("error:",error);
     }
-     // 异步等待
-    await waitFor(60); 
 
     // 获取更新后的资产名称
     const updatedAssetName = (await assetContract.assets(tokenId)).name;
@@ -109,11 +113,7 @@ describe("Asset Contract", function () {
   });
 
   it("should delete an existing asset", async () => {
-    const tokenId = 7;
     await assetContract.deleteAsset(tokenId);
-    // 等待6秒
-    await waitFor(60); 
-
     const asset = await assetContract.assets(tokenId);
     expect(asset.deleted).to.equal(1);
   });

@@ -1,5 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const fs = require('fs');
+const path = require('path'); 
 
 describe("Asset Contract", function () {
   let assetContract;
@@ -26,7 +28,7 @@ describe("Asset Contract", function () {
 
   it("should mint a new asset", async () => {
     const tokenId = 0; 
-    await assetContract.connect(owner).mint(
+    await assetContract.mint(
       owner.address,
       AssetData.name,
       AssetData.image,
@@ -40,7 +42,10 @@ describe("Asset Contract", function () {
     );
      // 等待交易完成
     await assetContract.deployTransaction.wait(2);
-    console.log("Current asset name after mint:", (await assetContract.assets(0)).name);
+    console.log("Current asset name after mint:", (await assetContract.assets(tokenId)).name);
+    // 调用合约获取已创建资产地址列表
+    const createdAssetAddresses = await assetContract.getCreatedAssets();
+    console.log("createdAssetAddresses:",createdAssetAddresses);
 
     const asset = await assetContract.assets(tokenId);
     console.log(asset);
@@ -59,7 +64,7 @@ describe("Asset Contract", function () {
   it("should update an existing asset", async () => {
     const tokenId = 0; 
     const newName = "Updated Asset";
-    await assetContract.connect(owner).updateAsset(
+    await assetContract.updateAsset(
       tokenId,
       newName,
       AssetData.image,
@@ -96,8 +101,20 @@ describe("Asset Contract", function () {
 
   it("should delete an existing asset", async () => {
     const tokenId = 0;
-    await assetContract.connect(owner).deleteAsset(tokenId);
+    await assetContract.deleteAsset(tokenId);
     const asset = await assetContract.assets(tokenId);
     expect(asset.deleted).to.equal(1);
+  });
+
+  it("Should export ABI and Contract Address", async function () {
+    // 构建文件路径
+    const filePath = path.join(__dirname,'..', 'api','asset-contract-data.json');
+
+    // 导出合约地址和abi到json文件中
+    const exportData = {
+      assetAddress: assetContract.address,
+      assetAbi: assetContract.interface.format("json"),  
+    };
+    fs.writeFileSync(filePath, JSON.stringify(exportData, null, 2));
   });
 });
