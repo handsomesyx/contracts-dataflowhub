@@ -56,6 +56,7 @@ contract Asset is ERC721 {
         newAsset.acceptedToken = acceptedToken;
         newAsset.tags = tags;
         newAsset.remarks = remarks;
+
         nextTokenId++;
         emit AssetMinted(to, tokenId);
     }
@@ -90,16 +91,6 @@ contract Asset is ERC721 {
         asset.tags = tags;
         asset.remarks = remarks;
         emit AssetUpdated(tokenId);
-    }
-
-    function getCreatedAssets() external view returns (bytes32[] memory) {
-        bytes32[] memory createdAssetIds = new bytes32[](nextTokenId);
-        for (uint256 i = 0; i < nextTokenId; i++) {
-            createdAssetIds[i] = keccak256(
-                abi.encodePacked(address(this), i + 1)
-            );
-        }
-        return createdAssetIds;
     }
 
     function deleteAsset(uint256 tokenId) external {

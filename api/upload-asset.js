@@ -8,6 +8,8 @@ describe("Asset Contract", function () {
   let owner;
   let contractData; 
   let tokenId;
+ 
+
   const AssetData = {
     name: "Test Asset", // 名称
     image: "test.jpg",  // 图片
@@ -22,55 +24,75 @@ describe("Asset Contract", function () {
 
   before(async () => {
     [owner] = await ethers.getSigners();
-    console.log("ownerAddress:",owner.address);
+
     // 从JSON文件读取合约数据
     const jsonFilePath = path.join(__dirname, "asset-contract-data.json");
     const rawContractData = fs.readFileSync(jsonFilePath);
     contractData = JSON.parse(rawContractData);
-    // 连接到现有的合约
     assetContract = new ethers.Contract(contractData.assetAddress, contractData.assetAbi, owner);
   });
-  
-  it("should mint a new asset", async () => {   
-    await assetContract.mint(
-      owner.address,
-      AssetData.name,
-      AssetData.image,
-      AssetData.price,
-      AssetData.subtitle,
-      AssetData.description,
-      AssetData.supply,
-      AssetData.acceptedToken,
-      AssetData.tags,
-      AssetData.remarks
-    );
 
-    // 监听 AssetMinted 事件,从中获取 tokenId
-    const filter = assetContract.filters.AssetMinted(null, null);
-    const events = await assetContract.queryFilter(filter);
-    const latestEvent = events[events.length - 1];     
-    tokenId = latestEvent.args.tokenId; 
-    console.log("New NFT Token ID:", tokenId.toString()); 
-    
-    // 调用合约获取已创建的资产地址，之后就可以根据资产地址进行上市
-    const createdAssetAddresses = await assetContract.getCreatedAssets();
-    const existingAssetAddress = createdAssetAddresses[tokenId];    
-    console.log("existingAssetAddress:",existingAssetAddress);
 
-    const asset = await assetContract.assets(tokenId);
-    console.log("after mint asset:",asset);
-    expect(asset.name).to.equal(AssetData.name);
-    expect(asset.image).to.equal(AssetData.image);
-    expect(asset.price).to.equal(AssetData.price);
-    expect(asset.subtitle).to.equal(AssetData.subtitle);
-    expect(asset.description).to.equal(AssetData.description);
-    expect(asset.supply).to.equal(AssetData.supply);
-    expect(asset.inventory).to.equal(AssetData.supply);
-    expect(asset.acceptedToken).to.equal(AssetData.acceptedToken);
-    expect(asset.tags).to.equal(AssetData.tags);
-    expect(asset.remarks).to.equal(AssetData.remarks);
-  });
+  // 创建资产
+  it("should mint assets", async () => {
+    const AssetData = {
+      name: "Test Asset",
+      image: "test.jpg",
+      price: ethers.utils.parseEther("1"),
+      subtitle: "Test Subtitle",
+      description: "Test Description",
+      supply: 10,
+      acceptedToken: ethers.constants.AddressZero,
+      tags: "energy",
+      remarks: "Test Remarks",
+    };
 
+    // 调用asset合约mint函数进行创建资产
+      const tx = await assetContract.mint(
+        owner.address,
+        AssetData.name,
+        AssetData.image,
+        AssetData.price,
+        AssetData.subtitle,
+        AssetData.description,
+        AssetData.supply,
+        AssetData.acceptedToken,
+        AssetData.tags,
+        AssetData.remarks
+      );
+
+        // 获取交易哈希和创建者
+        const receipt = await tx.wait();
+        const transactionHash = receipt.transactionHash;
+        console.log(`Transaction Hash: ${transactionHash}`);
+        const creator = receipt.from;
+        console.log(`creator: ${creator}`);
+
+        // 监听 AssetMinted 事件,从中获取 tokenId
+        const filter = assetContract.filters.AssetMinted(null, null);
+        const events = await assetContract.queryFilter(filter);
+        const newAssets = events.filter(event => event.transactionHash === transactionHash);
+        newAssets.forEach((event) => {
+          tokenId = event.args.tokenId;
+          console.log(`New asset created tokenId: ${tokenId}`);
+        });
+        
+        const asset = await assetContract.assets(tokenId);
+        console.log(asset);
+        expect(asset.name).to.equal(AssetData.name);
+        expect(asset.image).to.equal(AssetData.image);
+        expect(asset.price).to.equal(AssetData.price);
+        expect(asset.subtitle).to.equal(AssetData.subtitle);
+        expect(asset.description).to.equal(AssetData.description);
+        expect(asset.supply).to.equal(AssetData.supply);
+        expect(asset.inventory).to.equal(AssetData.supply);
+        expect(asset.acceptedToken).to.equal(AssetData.acceptedToken);
+        expect(asset.tags).to.equal(AssetData.tags);
+        expect(asset.remarks).to.equal(AssetData.remarks);       
+  })
+
+
+  // 更改已创建的资产信息
   it("should update an existing asset", async () => {
     const newName = "Updated Asset";
     try{
@@ -112,6 +134,8 @@ describe("Asset Contract", function () {
     expect(asset.remarks).to.equal("Updated Remarks");
   });
 
+
+  // 删除已创建的资产
   it("should delete an existing asset", async () => {
     await assetContract.deleteAsset(tokenId);
     const asset = await assetContract.assets(tokenId);
