@@ -1,9 +1,7 @@
 const { expect, assert } = require("chai");
 const { ethers } = require("hardhat");
-// const hardhatConfig = require("./hardhat.config.js"); // 替换为您的 Hardhat 配置文件路径
-
-// 获取您配置文件中的网络信息
-// const catChainConfig = hardhatConfig.networks.CatChain;
+const fs = require('fs');
+const path = require('path'); 
 
 
 describe("OneLandMarketplace", function () {
@@ -56,8 +54,8 @@ describe("OneLandMarketplace", function () {
     const listingType = 0; // 或者使用常量 Direct  0是直接售卖 1是拍卖
 
     // 资产属性
-    const productData = {
-      name: "Test Product",
+    const assetData = {
+      name: "Test Asset",
       image: "test.jpg",
       price: ethers.utils.parseEther("1"),
       subtitle: "Test Subtitle",
@@ -72,15 +70,15 @@ describe("OneLandMarketplace", function () {
    // 调用 mint 函数，创建资产
    await asset.mint(
       owner.address,
-      productData.name,
-      productData.image,
-      productData.price,
-      productData.subtitle,
-      productData.description,
-      productData.supply,
-      productData.acceptedToken,
-      productData.tags,
-      productData.remarks
+      assetData.name,
+      assetData.image,
+      assetData.price,
+      assetData.subtitle,
+      assetData.description,
+      assetData.supply,
+      assetData.acceptedToken,
+      assetData.tags,
+      assetData.remarks
     );
     await asset.deployTransaction.wait(3);
     // 监听 AssetMinted 事件,从中获取 tokenId
@@ -111,4 +109,31 @@ describe("OneLandMarketplace", function () {
       console.log("No AssetMinted events found.");
     }
  });
+
+  it("Should export ABI and Contract Address", async function () {
+    // 构建文件路径 
+    const assetFilePath = path.join(__dirname, '..', 'api', 'asset-contract-data.json');
+    const marketplaceFilePath = path.join(__dirname, '..', 'api', 'marketplace-contract-data.json');
+    const tokenFilePath = path.join(__dirname, '..', 'api', 'token-contract-data.json');
+
+    // 导出合约地址和abi到json文件中
+    const assetExportData = {
+      assetAddress: asset.address,
+      assetAbi: asset.interface.format("json"),
+    };
+    fs.writeFileSync(assetFilePath, JSON.stringify(assetExportData, null, 2));
+
+    const marketplaceExportData = {
+      marketplaceAddress: marketplace.address,
+      marketplaceAbi: marketplace.interface.format("json"),
+    };
+    fs.writeFileSync(marketplaceFilePath, JSON.stringify(marketplaceExportData, null, 2));
+
+    const tokenExportData = {
+      tokenAddress: token.address,
+      tokenAbi: token.interface.format("json"),
+    };
+    fs.writeFileSync(tokenFilePath, JSON.stringify(tokenExportData, null, 2));
+  });
+
 })

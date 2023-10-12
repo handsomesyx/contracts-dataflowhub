@@ -78,7 +78,7 @@ interface IMarketplace is IThirdwebContract, IPlatformFee {
      *  @param listingType           The type of listing to create - a direct listing or an auction.
     **/
     struct ListingParameters {
-        address assetContract; // 资产地址
+        address assetContract; // 资产合约地址
         uint256 tokenId; // 资产id
         uint256 startTime; //开始时间
         uint256 secondsUntilEndTime; // 结束时间
