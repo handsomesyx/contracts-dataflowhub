@@ -484,7 +484,7 @@ contract OneLandMarketplace is
 
     /// @dev Performs a direct listing sale.
     function executeSale(
-        Listing memory _targetListing, // listings
+        Listing memory _targetListing, // 资产列表
         address _payer, // 调用者
         address _receiver, // 最终买家地址
         address _currency, // 代币地址
@@ -500,30 +500,14 @@ contract OneLandMarketplace is
         );
 
         _targetListing.quantity -= _listingTokenAmountToTransfer;
-        // 资产之前的拥有者
-        // address oldOwner = _targetListing.tokenOwner;
-        // 更新资产的拥有者为买家
-        require(
-            _targetListing.tokenOwner ==
-                address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266),
-            "old tokenOwner error."
-        );
-        _targetListing.tokenOwner = _receiver;
-        require(
-            _targetListing.tokenOwner ==
-                address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),
-            "new tokenOwner error."
-        );
-        // address newOwner = _targetListing.tokenOwner;
-
         listings[_targetListing.listingId] = _targetListing;
 
         payout(
-            _payer,
-            _targetListing.tokenOwner,
-            _currency,
-            _currencyAmountToTransfer,
-            _targetListing
+            _payer, // 调用者
+            _targetListing.tokenOwner, // 资产拥有者
+            _currency, // 代币地址
+            _currencyAmountToTransfer, // 总价格
+            _targetListing // 资产列表
         );
 
         transferListingTokens(
@@ -855,6 +839,7 @@ contract OneLandMarketplace is
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Transfers tokens listed for sale in a direct or auction listing.
+    // 处理在不同的交易类型下资产的所有权转移
     function transferListingTokens(
         address _from,
         address _to,
@@ -880,27 +865,33 @@ contract OneLandMarketplace is
     }
 
     /// @dev Pays out stakeholders in a sale.
+    // platformFeeRecipient 收到 platformFeeCut 的平台手续费。
+    // royaltyRecipient 收到 royaltyCut 的版税。
+    // twFeeRecipient 收到 twFeeCut 的第三方服务费用。
+    // _payee 收到剩余的金额，减去平台手续费、版税和第三方服务费用。
     function payout(
-        address _payer,
-        address _payee,
-        address _currencyToUse,
-        uint256 _totalPayoutAmount,
-        Listing memory _listing
+        address _payer, // 调用者——付款人
+        address _payee, // 资产拥有者——收款人
+        address _currencyToUse, // 代币地址
+        uint256 _totalPayoutAmount, // 总价格
+        Listing memory _listing // 资产列表
     ) internal {
+        // 计算平台手续费的金额
         uint256 platformFeeCut = (_totalPayoutAmount * platformFeeBps) /
             MAX_BPS;
-
-        (address twFeeRecipient, uint256 twFeeBps) = thirdwebFee.getFeeInfo(
-            address(this),
-            FeeType.MARKET_SALE
-        );
+        // 第三方服务的费用信息
+        // (address twFeeRecipient, uint256 twFeeBps) = thirdwebFee.getFeeInfo(
+        //     address(this),
+        //     FeeType.MARKET_SALE
+        // );
+        // uint256 twFeeCut = (_totalPayoutAmount * twFeeBps) / MAX_BPS;
+        address twFeeRecipient = address(this);
+        uint256 twFeeBps = FeeType.MARKET_SALE;
         uint256 twFeeCut = (_totalPayoutAmount * twFeeBps) / MAX_BPS;
 
+        // 获取版税相关信息
         uint256 royaltyCut;
         address royaltyRecipient;
-
-        // Distribute royalties. See Sushiswap's https://github.com/sushiswap/shoyu/blob/master/contracts/base/BaseExchange.sol#L296
-
         try
             IERC2981Upgradeable(_listing.assetContract).royaltyInfo(
                 _listing.tokenId,
@@ -918,9 +909,8 @@ contract OneLandMarketplace is
             }
         } catch {}
 
-        // Distribute price to token owner
+        // 分发代币给各方
         address _nativeTokenWrapper = nativeTokenWrapper;
-
         CurrencyTransferLib.transferCurrencyWithWrapper(
             _currencyToUse,
             _payer,
@@ -957,41 +947,37 @@ contract OneLandMarketplace is
         address _currency, // 代币地址
         uint256 _currencyAmountToCheckAgainst // 总价格
     ) internal view {
-        // require(
-        //     IERC20Upgradeable(_currency).balanceOf(_addrToCheck) >=
-        //         _currencyAmountToCheckAgainst &&
-        //         IERC20Upgradeable(_currency).allowance(
-        //             _addrToCheck,
-        //             address(this)
-        //         ) >=
-        //         _currencyAmountToCheckAgainst,
-        //     "!BAL20"
-        // );
         require(
             IERC20Upgradeable(_currency).balanceOf(_addrToCheck) >=
+                _currencyAmountToCheckAgainst &&
+                IERC20Upgradeable(_currency).allowance(
+                    _addrToCheck,
+                    address(this)
+                ) >=
                 _currencyAmountToCheckAgainst,
-            "!Insufficient balance"
+            "!BAL20"
         );
-        require(
-            _addrToCheck == address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),
-            "addrToCheck error."
-        );
-        require(
-            _currency == address(0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9),
-            "currency error."
-        );
-        require(
-            address(this) ==
-                address(0x9E545E3C0baAB3E08CdfD552C960A1050f373042),
-            "address error."
-        );
-        require(
-            IERC20Upgradeable(_currency).allowance(
-                _addrToCheck,
-                address(this)
-            ) >= _currencyAmountToCheckAgainst,
-            "!Insufficient allowance"
-        );
+        // require(
+        //     IERC20Upgradeable(_currency).balanceOf(_addrToCheck) >=
+        //         _currencyAmountToCheckAgainst,
+        //     "!Insufficient balance"
+        // );
+        // require(
+        //     _addrToCheck == address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),
+        //     "addrToCheck error."
+        // );
+        // require(
+        //     address(this) ==
+        //         address(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512),
+        //     "address error."
+        // );
+        // require(
+        //     IERC20Upgradeable(_currency).allowance(
+        //         _addrToCheck,
+        //         address(this)
+        //     ) >= _currencyAmountToCheckAgainst,
+        //     "!Insufficient allowance"
+        // );
     }
 
     /// @dev Validates that `_tokenOwner` owns and has approved Market to transfer NFTs.
@@ -1029,6 +1015,11 @@ contract OneLandMarketplace is
         }
 
         require(isValid, "!BALNFT");
+        // require(
+        //     address(this) ==
+        //         address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266),
+        //     "address error."
+        // );
     }
 
     /// @dev Validates conditions of a direct listing sale.
@@ -1051,14 +1042,14 @@ contract OneLandMarketplace is
                 _quantityToBuy <= _listing.quantity,
             "invalid amount of tokens."
         );
-        require(
-            _payer == address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),
-            "payer error."
-        );
-        require(
-            _currency == address(0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9),
-            "_currency error."
-        );
+        // require(
+        //     _payer == address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),
+        //     "payer error."
+        // );
+        // require(
+        //     _currency == address(0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0),
+        //     "_currency error."
+        // );
 
         // Check if sale is made within the listing window.
         require(

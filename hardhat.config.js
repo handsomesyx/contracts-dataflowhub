@@ -6,6 +6,10 @@ module.exports = {
   networks: {
     hardhat: {
       chainId: 31337,
+      mining: {
+        auto: true, // 自动挖矿以使时间流逝
+        interval: 2000, // 块之间的时间间隔（以毫秒为单位）
+      },
     },
     localhost: {
       chainId: 31337,
